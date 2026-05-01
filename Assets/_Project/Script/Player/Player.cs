@@ -11,7 +11,13 @@ public class Player : MonoBehaviour
     public float maxHealth = 100f;
     private float _currentHealth;
 
+    [Header("경험치 시스템")]
+    public int currentLevel = 1;
+    public float currentExp = 0f;
+    public float maxExp = 100f; // 레벨업에 필요한 경험치량
+
     public Slider healthBarSlider;
+    public Slider expBarSlider;
     void Start()
     {
         // 씬에 있는 가짜 입력기를 찾아서 연결합니다. (나중에 STT로 교체할 부분)
@@ -29,6 +35,12 @@ public class Player : MonoBehaviour
         {
             healthBarSlider.maxValue = maxHealth; // 슬라이더의 최댓값을 내 최대 체력으로 맞춤
             healthBarSlider.value = _currentHealth; // 현재 슬라이더 게이지를 꽉 채움
+        }
+        // 경험치바 초기화
+        if (expBarSlider != null)
+        {
+            expBarSlider.maxValue = maxExp;
+            expBarSlider.value = currentExp;
         }
     }
 
@@ -51,6 +63,40 @@ public class Player : MonoBehaviour
         }
 
         Debug.Log("일치하는 단어를 가진 적이 없습니다!");
+    }
+
+    public void AddExp(float expAmount)
+    {
+        currentExp += expAmount;
+        Debug.Log($"경험치 획득: +{expAmount} (현재: {currentExp}/{maxExp})");
+
+        // UI 경험치바 채우기
+        if (expBarSlider != null) expBarSlider.value = currentExp;
+
+        // 레벨업 조건 달성 시
+        if (currentExp >= maxExp)
+        {
+            LevelUp();
+        }
+    }
+
+    private void LevelUp()
+    {
+        currentLevel++;
+        currentExp -= maxExp; // 초과한 경험치는 이월시킴 (예: 120/100 이면 다음 레벨은 20부터 시작)
+        maxExp *= 1.5f;       // 다음 레벨업 요구치를 1.5배로 증가 (기획에 맞게 수정)
+
+        // UI 갱신 (max값이 바뀌었으므로)
+        if (expBarSlider != null)
+        {
+            expBarSlider.maxValue = maxExp;
+            expBarSlider.value = currentExp;
+        }
+
+        Debug.Log($"레벨 업! 현재 레벨: {currentLevel}");
+        
+        // ⭐️ GameManager를 통해 시간을 멈추고 업그레이드 창(LevelUp State)을 띄웁니다!
+        GameManager.Instance.ChangeState(GameState.LevelUp);
     }
 
     public void TakeDamage(float damageAmount)

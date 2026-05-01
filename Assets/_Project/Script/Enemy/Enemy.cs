@@ -15,6 +15,10 @@ public class Enemy : MonoBehaviour
     [Header("공격 설정")]
     public float collisionDamage = 10f; // 부딪혔을 때 플레이어에게 줄 데미지
 
+    [Header("사망 이벤트")]
+    public float expReward = 20f; // 이 적을 죽이면 주는 경험치
+    public GameObject deathEffectPrefab; // 1단계에서 만든 폭발 이펙트 프리팹
+
     // ⭐️ Initialize 함수에 Transform 매개변수를 하나 추가합니다.
     public void Initialize(string assignedWord, Transform targetTransform)
     {
@@ -64,6 +68,24 @@ public class Enemy : MonoBehaviour
     private void Die()
     {
         Debug.Log($"[{myWord}] 사망!");
+
+        // 1. 내가 죽은 자리에 폭발 파티클을 하나 복제해 둡니다. (알아서 터지고 파괴됨)
+        if (deathEffectPrefab != null)
+        {
+            Instantiate(deathEffectPrefab, transform.position, Quaternion.identity);
+        }
+
+        // 2. 플레이어에게 경험치를 쏴줍니다. (_target이 플레이어 본체입니다)
+        if (_target != null)
+        {
+            Player playerScript = _target.GetComponent<Player>();
+            if (playerScript != null)
+            {
+                playerScript.AddExp(expReward);
+            }
+        }
+
+        // 3. 스포너에게 단어를 반납하고 나 자신을 파괴합니다.
         OnDeath?.Invoke(myWord, this); 
         Destroy(gameObject); 
     }
