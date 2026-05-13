@@ -42,6 +42,48 @@ public class Player : MonoBehaviour
             expBarSlider.maxValue = maxExp;
             expBarSlider.value = currentExp;
         }
+
+        // 네트워크 매니저로부터 점수(Payload)가 도착하면 실행될 함수를 연결합니다.
+        if (PronunciationClient.Instance != null)
+        {
+            PronunciationClient.Instance.OnScoreReceived += ExecuteVoiceAttack;
+        }
+    }
+
+    // ⭐️ 서버에서 점수와 인식된 단어를 받았을 때 실행되는 핵심 함수
+    private void ExecuteVoiceAttack(ScorePayload payload)
+    {
+        Debug.Log($"[공격 시도] 인식된 단어: {payload.recognized_word}, 점수: {payload.overall_score}");
+
+        // 1. 씬에 있는 모든 적(Enemy)을 찾습니다.
+        Enemy[] allEnemies = FindObjectsOfType<Enemy>();
+        bool targetFound = false;
+
+        foreach (Enemy enemy in allEnemies)
+        {
+            // 2. 적이 가진 단어(myWord)와 서버가 인식한 단어(recognized_word)가 일치하는지 확인
+            if (enemy.myWord == payload.recognized_word)
+            {
+                // 3. 데미지 계산: (기본 데미지 * 점수 백분율)
+                // 보고서 가이드에 따라 overall_score(0~100)를 0.0~1.0 계수로 변환합니다[cite: 53].
+                float damageMultiplier = payload.overall_score / 100f;
+                float finalDamage = baseDamage * damageMultiplier;
+
+                // 4. 적에게 데미지 입히기
+                enemy.TakeDamage(finalDamage);
+                
+                targetFound = true;
+                Debug.Log($"🎯 {enemy.myWord} 타격 성공! 데미지: {finalDamage}");
+                
+                // (선택 사항) 서바이버 장르 특성상 같은 단어가 여러 명일 수 있다면 
+                // return 대신 계속 루프를 돌게 할 수 있습니다.
+            }
+        }
+
+        if (!targetFound)
+        {
+            Debug.LogWarning($"일치하는 단어({payload.recognized_word})를 가진 적이 화면에 없습니다.");
+        }
     }
 
     private void AttackTarget(VoiceData data)
@@ -123,6 +165,11 @@ public class Player : MonoBehaviour
         if (_voiceInput != null)
         {
             _voiceInput.OnWordSpoken -= AttackTarget;
+        }
+        // 메모리 누수 방지를 위한 이벤트 구독 해제
+        if (PronunciationClient.Instance != null)
+        {
+            PronunciationClient.Instance.OnScoreReceived -= ExecuteVoiceAttack;
         }
     }
 

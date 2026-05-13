@@ -111,7 +111,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Enemy
   _wordTextUI: {fileID: 2137104358776028805}
-  moveSpeed: 2
+  moveSpeed: 0.5
   collisionDamage: 10
   expReward: 20
   deathEffectPrefab: {fileID: 4456042840638549593, guid: 5304947fb07eefe4e8c0bf31f96d68b7, type: 3}
