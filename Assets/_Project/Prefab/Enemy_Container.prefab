@@ -110,6 +110,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 71a216455dbb0d74e89ebefe51bee2cc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Enemy
+  maxHP: 10
   _wordTextUI: {fileID: 2137104358776028805}
   moveSpeed: 0
   collisionDamage: 10

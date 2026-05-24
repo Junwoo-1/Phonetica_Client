@@ -4,9 +4,13 @@ using System;
 
 public class Enemy : MonoBehaviour
 {
-    // ⭐️ 1. 시각적으로 보일 텍스트와 판정에 쓸 발음 데이터를 분리합니다.
     public string displayText { get; private set; }
     public string matchText { get; private set; }
+
+    [Header("체력 설정")]
+    public float maxHP = 100f;
+    private float currentHP;
+    private bool _isDead = false; // ⭐️ 죽음 처리 중인지 확인하는 방어막
 
     [SerializeField] private TextMeshPro _wordTextUI;
     public event Action<string, Enemy> OnDeath;
@@ -22,62 +26,74 @@ public class Enemy : MonoBehaviour
     public float expReward = 20f;
     public GameObject deathEffectPrefab;
 
-    // ⭐️ 2. Initialize에서 실제 단어와 발음 정보를 모두 받도록 확장합니다.
     public void Initialize(string visualWord, string pronunciation, Transform targetTransform)
     {
-        displayText = visualWord;   // 예: "닭볶이"
-        matchText = pronunciation;   // 예: "닥뽀끼" (G2P 적용 결과)
         _target = targetTransform;
+        currentHP = maxHP;
+        UpdateWord(visualWord, pronunciation);
+    }
+
+    public void UpdateWord(string visualWord, string pronunciation)
+    {
+        // ⭐️ 죽는 중이라면 단어를 갱신하지 않습니다.
+        if (_isDead) return;
+
+        displayText = visualWord;
+        matchText = pronunciation;
 
         if (_wordTextUI != null) _wordTextUI.text = displayText;
         gameObject.name = $"Enemy_{displayText}";
     }
 
+    // ⭐️ 생존 여부를 bool로 반환하도록 수정
+    public bool TakeDamage(float damage)
+    {
+        if (_isDead) return false;
+
+        currentHP -= damage;
+        Debug.Log($"[{displayText}] {damage} 데미지! 남은 HP: {currentHP}");
+
+        if (currentHP <= 0)
+        {
+            _isDead = true; // 즉시 죽음 확정 플래그를 세웁니다.
+            Die();
+            return false; // 죽었음
+        }
+
+        return true; // 살아있음
+    }
+
     void Update()
     {
-        if (_target != null)
+        if (_target != null && !_isDead) // 죽는 중에는 이동 정지
         {
             Vector3 direction = (_target.position - transform.position).normalized;
             transform.position += direction * moveSpeed * Time.deltaTime;
         }
     }
 
-    public void TakeDamage(float damage)
-    {
-        Debug.Log($"[{displayText}] 적이 {damage}의 데미지를 입었습니다!");
-        Die();
-    }
-
     private void OnTriggerEnter2D(Collider2D other)
     {
-        if (other.CompareTag("Player"))
+        if (other.CompareTag("Player") && !_isDead)
         {
             Player playerScript = other.GetComponent<Player>();
-            if (playerScript != null)
-            {
-                playerScript.TakeDamage(collisionDamage);
-            }
+            if (playerScript != null) playerScript.TakeDamage(collisionDamage);
+            _isDead = true;
             Die();
         }
     }
 
     private void Die()
     {
-        if (deathEffectPrefab != null)
-        {
-            Instantiate(deathEffectPrefab, transform.position, Quaternion.identity);
-        }
+        if (deathEffectPrefab != null) Instantiate(deathEffectPrefab, transform.position, Quaternion.identity);
 
         if (_target != null)
         {
             Player playerScript = _target.GetComponent<Player>();
-            if (playerScript != null)
-            {
-                playerScript.AddExp(expReward);
-            }
+            if (playerScript != null) playerScript.AddExp(expReward);
         }
 
-        // ⭐️ 3. 스포너에는 다시 표시용 단어(displayText)를 반납합니다.
+        // 스포너에게 죽은 단어("포도")를 반환합니다.
         OnDeath?.Invoke(displayText, this);
         Destroy(gameObject);
     }

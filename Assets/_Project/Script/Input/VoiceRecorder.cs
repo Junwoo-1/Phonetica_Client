@@ -11,25 +11,26 @@ public class ContinuousVoiceRecorder : MonoBehaviour
 
     [Header("UI 시각화")]
     public Slider volumeSlider;
-    
+
     [Header("VAD 감도 설정")]
-    [Range(0f, 1f)] public float threshold = 0.05f; // 소리 감지 기준점 (유저마다 다름!)
-    public float hangTime = 0.8f; // 말이 끝나고 몇 초 뒤에 녹음을 전송할지
-    public float preBufferTime = 0.3f; // ⭐️ 추가: 녹음 시작 전 보존할 시간(초)
+    [Range(0f, 1f)] public float threshold = 0.05f;
+    public float hangTime = 0.8f;
+    public float preBufferTime = 0.3f;
 
     private bool _isCapturing = false;
     private float _silenceTimer = 0f;
     private int _lastMicPosition = 0;
 
-    // 녹음된 오디오 샘플을 모아둘 바구니
-    private List<float> _audioBuffer = new List<float>(); 
+    private List<float> _audioBuffer = new List<float>();
+
+    // ⭐️ 추가: UI 제어용 시스템 단어 목록
+    private List<string> _uiCommands = new List<string> { "일시정지", "메뉴" };
 
     void Start()
     {
         if (Microphone.devices.Length > 0)
         {
             _micName = Microphone.devices[0];
-            // 마이크를 '루프 모드(true)'로 10초짜리 클립에 무한히 덮어쓰며 녹음 시작
             _loopClip = Microphone.Start(_micName, true, 10, SAMPLE_RATE);
             Debug.Log($"[VAD] 상시 감지 대기 중... (Threshold: {threshold})");
         }
@@ -42,16 +43,10 @@ public class ContinuousVoiceRecorder : MonoBehaviour
         int currentMicPos = Microphone.GetPosition(_micName);
         if (currentMicPos == _lastMicPosition) return;
 
-        // 소리 크기 계산
         float currentVolume = GetCurrentVolume(currentMicPos);
 
-        // 1. UI 슬라이더에 현재 볼륨 표시
-        if (volumeSlider != null)
-        {
-            volumeSlider.value = currentVolume;
-        }
+        if (volumeSlider != null) volumeSlider.value = currentVolume;
 
-        // --- VAD 상태 로직 ---
         if (currentVolume > threshold)
         {
             _silenceTimer = 0f;
@@ -60,11 +55,10 @@ public class ContinuousVoiceRecorder : MonoBehaviour
                 _isCapturing = true;
                 _audioBuffer.Clear();
 
-                // ⭐️ 추가: 녹음 시작 시, 과거 0.3초 분량의 소리를 미리 버퍼에 담습니다.
                 int preBufferSamples = Mathf.FloorToInt(preBufferTime * SAMPLE_RATE);
                 ExtractPreBuffer(currentMicPos, preBufferSamples);
 
-                Debug.Log($"🎙️ [녹음 시작] 목소리 감지됨! (프리버퍼 확보 완료)");
+                Debug.Log($"🎙️ [녹음 시작] 목소리 감지됨!");
             }
         }
         else if (_isCapturing)
@@ -73,17 +67,30 @@ public class ContinuousVoiceRecorder : MonoBehaviour
             if (_silenceTimer > hangTime)
             {
                 _isCapturing = false;
-                Debug.Log($"[녹음 완료] 버퍼 샘플 수: {_audioBuffer.Count}");
-                
-                // 2단계에서 만들 WAV 변환 함수 호출!
+
                 byte[] wavData = ConvertToWav(_audioBuffer, SAMPLE_RATE);
-                
-                // 서버 사이드로 송신
-                PronunciationClient.Instance.SendAudioToServer(wavData);
+
+                // ⭐️ [NEW] 하이브리드 통신: 서버로 보낼 후보군 문자열 조립
+                List<string> allCandidates = new List<string>();
+
+                // 1. 화면에 스폰된 몬스터 단어들 추가
+                if (EnemySpawner.Instance != null)
+                {
+                    allCandidates.AddRange(EnemySpawner.Instance.ActiveWords);
+                }
+
+                // 2. UI 명령어 추가
+                allCandidates.AddRange(_uiCommands);
+
+                // 3. 콤마(,)로 묶어서 하나의 문자열로 만들기
+                string candidatesStr = string.Join(",", allCandidates);
+                Debug.Log($"[서버 전송] 후보 단어들: {candidatesStr}");
+
+                // 4. 오디오와 후보군을 함께 서버로 전송!
+                PronunciationClient.Instance.SendAudioToServer(wavData, candidatesStr);
             }
         }
 
-        // 2. 캡처 중일 때만 실제 오디오 데이터를 리스트에 차곡차곡 저장합니다.
         if (_isCapturing)
         {
             ExtractAndBufferAudio(currentMicPos);
@@ -176,38 +183,30 @@ public class ContinuousVoiceRecorder : MonoBehaviour
     private byte[] ConvertToWav(List<float> samples, int sampleRate = 16000)
     {
         int headerSize = 44;
-        int byteRate = sampleRate * 2; // 16-bit(2 bytes) Mono(1 channel)
+        int byteRate = sampleRate * 2;
         byte[] wavData = new byte[headerSize + samples.Count * 2];
 
-        // --- 1. WAV RIFF 헤더 44바이트 작성 (국제 표준 규격) ---
         System.Text.Encoding.UTF8.GetBytes("RIFF").CopyTo(wavData, 0);
-        System.BitConverter.GetBytes(36 + samples.Count * 2).CopyTo(wavData, 4); // 전체 파일 크기
+        System.BitConverter.GetBytes(36 + samples.Count * 2).CopyTo(wavData, 4);
         System.Text.Encoding.UTF8.GetBytes("WAVE").CopyTo(wavData, 8);
-        
         System.Text.Encoding.UTF8.GetBytes("fmt ").CopyTo(wavData, 12);
-        System.BitConverter.GetBytes(16).CopyTo(wavData, 16); // fmt 청크 크기
-        System.BitConverter.GetBytes((short)1).CopyTo(wavData, 20); // 오디오 포맷 (1 = PCM)
-        System.BitConverter.GetBytes((short)1).CopyTo(wavData, 22); // 채널 수 (1 = Mono)
-        System.BitConverter.GetBytes(sampleRate).CopyTo(wavData, 24); // 샘플 레이트 (16000)
-        System.BitConverter.GetBytes(byteRate).CopyTo(wavData, 28); // 바이트 레이트
-        System.BitConverter.GetBytes((short)2).CopyTo(wavData, 32); // 블록 얼라인
-        System.BitConverter.GetBytes((short)16).CopyTo(wavData, 34); // 비트 뎁스 (16-bit)
-        
+        System.BitConverter.GetBytes(16).CopyTo(wavData, 16);
+        System.BitConverter.GetBytes((short)1).CopyTo(wavData, 20);
+        System.BitConverter.GetBytes((short)1).CopyTo(wavData, 22);
+        System.BitConverter.GetBytes(sampleRate).CopyTo(wavData, 24);
+        System.BitConverter.GetBytes(byteRate).CopyTo(wavData, 28);
+        System.BitConverter.GetBytes((short)2).CopyTo(wavData, 32);
+        System.BitConverter.GetBytes((short)16).CopyTo(wavData, 34);
         System.Text.Encoding.UTF8.GetBytes("data").CopyTo(wavData, 36);
-        System.BitConverter.GetBytes(samples.Count * 2).CopyTo(wavData, 40); // 데이터 청크 크기
+        System.BitConverter.GetBytes(samples.Count * 2).CopyTo(wavData, 40);
 
-        // --- 2. 실제 오디오 데이터 변환 ---
-        // 유니티의 float (-1.0 ~ 1.0)을 16-bit PCM 정수 (-32768 ~ 32767)로 변환합니다.
         int offset = 44;
         foreach (float sample in samples)
         {
-            // 노이즈가 튀는 것을 막기 위해 Clamp로 값을 제한한 뒤 16비트로 변환
             short intSample = (short)(Mathf.Clamp(sample, -1f, 1f) * 32767);
             System.BitConverter.GetBytes(intSample).CopyTo(wavData, offset);
             offset += 2;
         }
-
-        Debug.Log($"[WAV 변환 완료] {wavData.Length} 바이트 생성됨.");
         return wavData;
     }
 }
