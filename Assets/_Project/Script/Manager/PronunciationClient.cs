@@ -4,15 +4,49 @@ using System.Text;
 using UnityEngine;
 using UnityEngine.Networking;
 
-// 백엔드에서 날아올 JSON 구조 중 'score' 데이터를 담을 그릇 (보고서 기준)
+[Serializable]
+public class JamoToken
+{
+    public string @char;
+    public string pos;
+    public int syl; // ⭐️ string에서 int로 변경! (서버에서 0, 1 같은 정수로 보냄)
+}
+
+[Serializable]
+public class SSEEnvelope
+{
+    public string @event;
+    public ScorePayload data; // 이 안에 진짜 데이터가 들어있습니다.
+    public string ts;
+    public string request_id;
+}
+
+[Serializable]
+public class PositionAccuracy
+{
+    public int matched;
+    public int total;
+    public float accuracy;
+}
+
+[Serializable]
+public class PerPosition
+{
+    public PositionAccuracy onset;   // 초성 (ㄱ, ㄷ, ㅂ...)
+    public PositionAccuracy nucleus; // 중성 (ㅏ, ㅗ, ㅜ...)
+    public PositionAccuracy coda;    // 종성 (받침)
+}
+
 [Serializable]
 public class ScorePayload
 {
-    public float overall_score; // 0~100 점수 (데미지 계수로 사용)
-    public float per;
-    public float weighted_per;
-    public bool low_confidence;
+    public float overall_score;
     public string recognized_word;
+    public JamoToken[] ref_jamo;
+
+    // ⭐️ 서버가 주는 진짜 발음 분석 데이터를 추가로 받습니다!
+    public PerPosition per_position;
+    public string[] problem_jamos;
 }
 
 
@@ -37,6 +71,7 @@ public class PronunciationClient : MonoBehaviour
     // VAD 녹음이 끝나면 이 함수를 호출하여 wavData를 넘겨줍니다.
     public void SendAudioToServer(byte[] wavData)
     {
+        Debug.Log("[PronunciationClient] SendAudioToServer 함수가 호출되었습니다!");
         StartCoroutine(UploadAndReceiveSSE(wavData));
     }
 
@@ -91,6 +126,7 @@ public class PronunciationClient : MonoBehaviour
     // 보고서의 SSE 이벤트 명세에 맞춘 파싱 
     private void ParseSingleEvent(string eventBlock)
     {
+        Debug.Log($"[수신 데이터 확인] {eventBlock}");
         string eventName = "";
         string eventData = "";
 
@@ -121,12 +157,24 @@ public class PronunciationClient : MonoBehaviour
                 OnStatusUpdated?.Invoke("발음 정밀 분석 중..."); // 상세 단계 묶음 처리 
                 break;
             case "score":
-                // JSON 파싱: overall_score 추출
-                ScorePayload payload = JsonUtility.FromJson<ScorePayload>(eventData);
-                Debug.Log($"🎯 최종 점수 획득: {payload.overall_score}점!");
+                // 1. 껍데기(Envelope) 클래스로 먼저 JSON을 파싱합니다.
+                SSEEnvelope envelope = JsonUtility.FromJson<SSEEnvelope>(eventData);
+
+                // 2. 알맹이(data)만 빼옵니다.
+                ScorePayload payload = envelope.data;
+
+                // 3. 만약 서버에서 recognized_word가 오지 않았다면 ref_jamo로 복원합니다.
+                // (syl이 이제 int가 되었으므로 로직 수정이 필요합니다)
+                if (string.IsNullOrEmpty(payload.recognized_word) && payload.ref_jamo != null)
+                {
+                    // 서버가 recognized_word를 보내주므로 이 로직을 탈 일은 거의 없지만,
+                    // 안전장치를 위해 남겨둔다면 구조를 바꿔야 합니다. 
+                    // 하지만 현재 서버는 확실히 recognized_word를 줍니다.
+                }
+
+                // 4. 로그 출력 및 이벤트 발생
+                Debug.Log($"🎯 최종 결과 - 발음: {payload.recognized_word} / 점수: {payload.overall_score}점");
                 OnStatusUpdated?.Invoke("분석 완료!");
-                
-                // Player 스크립트 등에게 점수를 뿌려줍니다.
                 OnScoreReceived?.Invoke(payload);
                 break;
             case "done":

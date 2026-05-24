@@ -15,6 +15,7 @@ public class ContinuousVoiceRecorder : MonoBehaviour
     [Header("VAD 감도 설정")]
     [Range(0f, 1f)] public float threshold = 0.05f; // 소리 감지 기준점 (유저마다 다름!)
     public float hangTime = 0.8f; // 말이 끝나고 몇 초 뒤에 녹음을 전송할지
+    public float preBufferTime = 0.3f; // ⭐️ 추가: 녹음 시작 전 보존할 시간(초)
 
     private bool _isCapturing = false;
     private float _silenceTimer = 0f;
@@ -53,12 +54,17 @@ public class ContinuousVoiceRecorder : MonoBehaviour
         // --- VAD 상태 로직 ---
         if (currentVolume > threshold)
         {
-            _silenceTimer = 0f; 
+            _silenceTimer = 0f;
             if (!_isCapturing)
             {
                 _isCapturing = true;
-                _audioBuffer.Clear(); 
-                Debug.Log("🎙️ [녹음 시작] 목소리 감지됨!");
+                _audioBuffer.Clear();
+
+                // ⭐️ 추가: 녹음 시작 시, 과거 0.3초 분량의 소리를 미리 버퍼에 담습니다.
+                int preBufferSamples = Mathf.FloorToInt(preBufferTime * SAMPLE_RATE);
+                ExtractPreBuffer(currentMicPos, preBufferSamples);
+
+                Debug.Log($"🎙️ [녹음 시작] 목소리 감지됨! (프리버퍼 확보 완료)");
             }
         }
         else if (_isCapturing)
@@ -84,6 +90,45 @@ public class ContinuousVoiceRecorder : MonoBehaviour
         }
 
         _lastMicPosition = currentMicPos;
+    }
+
+    // ⭐️ 새로 추가된 함수: 감지된 시점보다 과거의 소리를 AudioClip에서 가져옵니다.
+    private void ExtractPreBuffer(int currentMicPos, int sampleCount)
+    {
+        if (sampleCount <= 0 || _loopClip == null) return;
+
+        // 과거로 돌아갈 시작 위치 계산
+        int startPos = currentMicPos - sampleCount;
+
+        if (startPos < 0)
+        {
+            // 마이크 루프의 처음(0)을 넘어 끝부분으로 돌아간 경우 (Wrap-around)
+            startPos += _loopClip.samples;
+
+            // 1. 클립의 끝부분(startPos ~ 끝) 가져오기
+            int firstPartSize = _loopClip.samples - startPos;
+            float[] firstPart = new float[firstPartSize];
+            _loopClip.GetData(firstPart, startPos);
+
+            // 2. 클립의 앞부분(0 ~ 남은 개수) 가져오기
+            int secondPartSize = sampleCount - firstPartSize;
+            float[] secondPart = new float[secondPartSize];
+            if (secondPartSize > 0)
+            {
+                _loopClip.GetData(secondPart, 0);
+            }
+
+            // 바구니에 순서대로 담기
+            _audioBuffer.AddRange(firstPart);
+            _audioBuffer.AddRange(secondPart);
+        }
+        else
+        {
+            // 루프 경계를 넘지 않는 평범한 경우
+            float[] preSamples = new float[sampleCount];
+            _loopClip.GetData(preSamples, startPos);
+            _audioBuffer.AddRange(preSamples);
+        }
     }
 
     // 새로 추가된 함수: 마이크 클립에서 새 소리 조각을 떼어내어 바구니에 담기

@@ -3,9 +3,8 @@ using UnityEngine.UI;
 
 public class Player : MonoBehaviour
 {
-    // 인터페이스를 통해 입력기를 받습니다.
     private IVoiceInput _voiceInput;
-    public float baseDamage = 10f;
+    public float baseDamage = 100f; // 기본 데미지 상향 (점수 비율 반영 대비)
 
     [Header("체력 시스템")]
     public float maxHealth = 100f;
@@ -14,97 +13,99 @@ public class Player : MonoBehaviour
     [Header("경험치 시스템")]
     public int currentLevel = 1;
     public float currentExp = 0f;
-    public float maxExp = 100f; // 레벨업에 필요한 경험치량
+    public float maxExp = 100f;
 
     public Slider healthBarSlider;
     public Slider expBarSlider;
+
     void Start()
     {
-        // 씬에 있는 가짜 입력기를 찾아서 연결합니다. (나중에 STT로 교체할 부분)
         _voiceInput = FindObjectOfType<MockKeyboardInput>();
-        
         if (_voiceInput != null)
         {
-            // 입력기의 이벤트에 내 공격 함수를 구독(연결)합니다.
             _voiceInput.OnWordSpoken += AttackTarget;
         }
-        // 체력 초기화
+
         _currentHealth = maxHealth;
-        
         if (healthBarSlider != null)
         {
-            healthBarSlider.maxValue = maxHealth; // 슬라이더의 최댓값을 내 최대 체력으로 맞춤
-            healthBarSlider.value = _currentHealth; // 현재 슬라이더 게이지를 꽉 채움
+            healthBarSlider.maxValue = maxHealth;
+            healthBarSlider.value = _currentHealth;
         }
-        // 경험치바 초기화
+
         if (expBarSlider != null)
         {
             expBarSlider.maxValue = maxExp;
             expBarSlider.value = currentExp;
         }
 
-        // 네트워크 매니저로부터 점수(Payload)가 도착하면 실행될 함수를 연결합니다.
+        // ⭐️ 네트워크 매니저로부터 발음 분석 결과 수신 시 실행
         if (PronunciationClient.Instance != null)
         {
             PronunciationClient.Instance.OnScoreReceived += ExecuteVoiceAttack;
         }
     }
 
-    // ⭐️ 서버에서 점수와 인식된 단어를 받았을 때 실행되는 핵심 함수
+    // ⭐️ [핵심] 서버의 실제 발음 분석 결과를 바탕으로 타격 수행
     private void ExecuteVoiceAttack(ScorePayload payload)
     {
-        Debug.Log($"[공격 시도] 인식된 단어: {payload.recognized_word}, 점수: {payload.overall_score}");
+        string recognizedWord = payload.recognized_word;
+        if (string.IsNullOrEmpty(recognizedWord)) return;
 
-        // 1. 씬에 있는 모든 적(Enemy)을 찾습니다.
-        Enemy[] allEnemies = FindObjectsOfType<Enemy>();
-        bool targetFound = false;
+        Enemy[] targets = FindObjectsOfType<Enemy>();
+        bool isHit = false;
 
-        foreach (Enemy enemy in allEnemies)
+        foreach (Enemy enemy in targets)
         {
-            // 2. 적이 가진 단어(myWord)와 서버가 인식한 단어(recognized_word)가 일치하는지 확인
-            if (enemy.myWord == payload.recognized_word)
+            if (enemy.displayText == recognizedWord)
             {
-                // 3. 데미지 계산: (기본 데미지 * 점수 백분율)
-                // 보고서 가이드에 따라 overall_score(0~100)를 0.0~1.0 계수로 변환합니다[cite: 53].
-                float damageMultiplier = payload.overall_score / 100f;
-                float finalDamage = baseDamage * damageMultiplier;
+                // [상태 A: 단어 인식 성공]
+                // 1. 데미지 처리
+                float damage = baseDamage * (payload.overall_score / 100f);
+                enemy.TakeDamage(damage);
+                isHit = true;
 
-                // 4. 적에게 데미지 입히기
-                enemy.TakeDamage(finalDamage);
-                
-                targetFound = true;
-                Debug.Log($"🎯 {enemy.myWord} 타격 성공! 데미지: {finalDamage}");
-                
-                // (선택 사항) 서바이버 장르 특성상 같은 단어가 여러 명일 수 있다면 
-                // return 대신 계속 루프를 돌게 할 수 있습니다.
+                // 2. 정밀 피드백 처리 (단어가 일치할 때만 서버의 점수가 유효함!)
+                if (payload.problem_jamos != null && payload.problem_jamos.Length > 0)
+                {
+                    Debug.Log($"[발음 교정] {enemy.displayText} 타격! 🚨주의 자모: {string.Join(", ", payload.problem_jamos)}");
+                }
+                else
+                {
+                    Debug.Log($"[발음 완벽] {enemy.displayText} 타격! (점수: {payload.overall_score})");
+                }
             }
         }
 
-        if (!targetFound)
+        // [상태 B: 단어 인식 실패 (다뽑기 등 엉뚱한 단어로 인식된 경우)]
+        if (!isHit)
         {
-            Debug.LogWarning($"일치하는 단어({payload.recognized_word})를 가진 적이 화면에 없습니다.");
+            // ⭐️ 여기에 "오인식 피드백" 로직을 넣습니다!
+            // 서버의 점수(overall_score)는 무시하고, '어떻게 들렸는지'만 알려줍니다.
+
+            Debug.LogWarning($"❌ 공격 실패! 플레이어님, 방금 🗣️'{recognizedWord}'(이)라고 발음하셨습니다.");
+
+            // TODO: 유니티 UI로 화면 중앙이나 플레이어 머리 위에 띄워주기
+            // ShowFloatingText($"듣기 실패: {recognizedWord}"); 
         }
     }
 
+    // ⭐️ [디버깅용] 키보드 입력 시에도 matchText를 기준으로 동작하도록 수정
     private void AttackTarget(VoiceData data)
     {
-        // 1. 씬에 있는 모든 적을 찾습니다. (임시 로직)
         Enemy[] allEnemies = FindObjectsOfType<Enemy>();
 
-        // 2. 내가 말한 단어와 똑같은 단어를 가진 적을 찾습니다.
         foreach (Enemy enemy in allEnemies)
         {
-            if (enemy.myWord == data.word)
+            // 가짜 입력기로 테스트할 때도 발음(matchText) 기준으로 검사합니다.
+            if (enemy.matchText == data.word)
             {
-                // 3. 기획했던 데미지 공식을 적용합니다.
                 float finalDamage = baseDamage * (data.accuracy + data.pitchScore);
-                
                 enemy.TakeDamage(finalDamage);
-                return; // 하나 때렸으면 함수 종료
+                return;
             }
         }
-
-        Debug.Log("일치하는 단어를 가진 적이 없습니다!");
+        Debug.Log("일치하는 발음 데이터를 가진 적이 없습니다!");
     }
 
     public void AddExp(float expAmount)
@@ -161,12 +162,10 @@ public class Player : MonoBehaviour
     }
     void OnDestroy()
     {
-        // 메모리 누수 방지를 위해 이벤트 구독 해제
         if (_voiceInput != null)
         {
             _voiceInput.OnWordSpoken -= AttackTarget;
         }
-        // 메모리 누수 방지를 위한 이벤트 구독 해제
         if (PronunciationClient.Instance != null)
         {
             PronunciationClient.Instance.OnScoreReceived -= ExecuteVoiceAttack;
@@ -175,9 +174,7 @@ public class Player : MonoBehaviour
 
     private void Die()
     {
-        Debug.Log("플레이어 사망! 게임 오버 요청!");
-        
-        // ⭐️ GameManager의 싱글톤 인스턴스를 통해 게임 상태를 게임 오버로 변경!
+        Debug.Log("플레이어 사망! 게임 오버!");
         GameManager.Instance.ChangeState(GameState.GameOver);
     }
 }
