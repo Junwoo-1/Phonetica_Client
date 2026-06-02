@@ -1,7 +1,7 @@
 using UnityEngine;
 using TMPro;
 using System;
-
+using UnityEngine.UI;
 public class Enemy : MonoBehaviour
 {
     public string displayText { get; private set; }
@@ -10,8 +10,9 @@ public class Enemy : MonoBehaviour
     [Header("체력 설정")]
     public float maxHP = 100f;
     private float currentHP;
-    private bool _isDead = false; // ⭐️ 죽음 처리 중인지 확인하는 방어막
+    private bool _isDead = false; // 죽음 처리 중인지 확인하는 방어막
 
+    [SerializeField] private Slider hpSlider;
     [SerializeField] private TextMeshPro _wordTextUI;
     public event Action<string, Enemy> OnDeath;
 
@@ -30,6 +31,13 @@ public class Enemy : MonoBehaviour
     {
         _target = targetTransform;
         currentHP = maxHP;
+
+        if (hpSlider != null)
+        {
+            hpSlider.maxValue = maxHP;
+            hpSlider.value = currentHP;
+        }
+
         UpdateWord(visualWord, pronunciation);
     }
 
@@ -52,6 +60,8 @@ public class Enemy : MonoBehaviour
 
         currentHP -= damage;
         Debug.Log($"[{displayText}] {damage} 데미지! 남은 HP: {currentHP}");
+
+        if (hpSlider != null) hpSlider.value = currentHP;
 
         if (currentHP <= 0)
         {

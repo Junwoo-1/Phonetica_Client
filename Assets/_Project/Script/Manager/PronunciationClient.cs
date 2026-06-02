@@ -53,13 +53,24 @@ public class ScorePayload
     public float overall_score;
     public string recognized_word;
 
-    // ⭐️ [NEW] 추가된 데이터 필드들
-    public string whisper_text;
+    // ❌ 삭제됨: public string whisper_text;
+
+    // ⭐️ 정답 기준 채점 결과 (기존과 동일, UI 조립용)
     public JamoScoreInfo[] detailed_jamos;
+
+    // ⭐️ [NEW] 유저가 실제로 발음한 궤적 데이터 (매우 중요!)
+    public JamoToken[] heard_jamos;
+
+    // ⭐️ [NEW] 발음 에러율 데이터
+    public float per;
+    public float weighted_per;
 
     public JamoToken[] ref_jamo;
     public PerPosition per_position;
     public string[] problem_jamos;
+
+    // ⭐️ [NEW] (선택) 서버 신뢰도 부족 여부
+    public bool low_confidence;
 }
 
 public class PronunciationClient : MonoBehaviour
@@ -150,10 +161,8 @@ public class PronunciationClient : MonoBehaviour
                 OnStatusUpdated?.Invoke("분석 대기 중...");
                 break;
             case "audio_loaded":
-            case "asr_progress":
-            case "asr_completed":
+            case "phoneme_completed": // ⭐️ Whisper(ASR) 단계가 빠지고 바로 음소 분석으로 넘어갑니다.
             case "g2p_completed":
-            case "phoneme_completed":
             case "alignment_completed":
                 OnStatusUpdated?.Invoke("발음 정밀 분석 중...");
                 break;
@@ -161,7 +170,7 @@ public class PronunciationClient : MonoBehaviour
                 SSEEnvelope envelope = JsonUtility.FromJson<SSEEnvelope>(eventData);
                 ScorePayload payload = envelope.data;
 
-                Debug.Log($"🎯 최종 결과 - 발음: {payload.recognized_word} / 점수: {payload.overall_score}점");
+                Debug.Log($"🎯 최종 결과 - 정답 단어: {payload.recognized_word} / 점수: {payload.overall_score}점");
                 OnStatusUpdated?.Invoke("분석 완료!");
                 OnScoreReceived?.Invoke(payload);
                 break;

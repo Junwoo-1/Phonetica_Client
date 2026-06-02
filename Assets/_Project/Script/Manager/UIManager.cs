@@ -3,7 +3,7 @@ using TMPro;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine.UI;
-using System.Linq; // 데이터 그룹화를 위해 추가
+using System.Linq;
 
 public class UIManager : MonoBehaviour
 {
@@ -17,13 +17,11 @@ public class UIManager : MonoBehaviour
     public TextMeshProUGUI statusText;
 
     [Header("조립식 피드백 설정")]
-    public Transform wordContainer;    // 단어 전체가 담길 부모 (Horizontal Layout Group)
-    public GameObject syllablePrefab; // ⭐️ 개별 음절(글자) 프리팹
+    public Transform wordContainer;    // 정답 단어 (위쪽)
+    public Transform heardContainer;   // 유저 실제 발음 단어 (아래쪽)
+    public GameObject syllablePrefab;
     public TextMeshProUGUI feedbackTitleText;
     public float feedbackDisplayTime = 2.0f;
-
-    // 가로형 모음 (자음 아래에 붙는 모음들)
-    private string horizontalVowels = "ㅗㅛㅜㅠㅡ";
 
     private void Awake()
     {
@@ -45,40 +43,59 @@ public class UIManager : MonoBehaviour
             PronunciationClient.Instance.OnStatusUpdated -= UpdateStatusText;
     }
 
-    // ⭐️ 음절 단위 피드백 핵심 로직
-    public void ShowSyllableFeedback(string title, List<JamoScoreInfo> detailedJamos)
+    // 매개변수에 heardJamos 리스트를 추가로 받습니다.
+    public void ShowSyllableFeedback(string title, List<JamoScoreInfo> detailedJamos, List<JamoToken> heardJamos)
     {
         if (wordContainer == null || syllablePrefab == null) return;
 
-        // 1. 기존 UI 제거
+        // 1. 기존 UI 초기화
         foreach (Transform child in wordContainer) Destroy(child.gameObject);
+        if (heardContainer != null)
+            foreach (Transform child in heardContainer) Destroy(child.gameObject);
+
         if (feedbackTitleText != null) feedbackTitleText.text = title;
 
-        // 2. 서버 데이터를 음절(syl) 인덱스별로 그룹화
-        var groupedBySyllable = detailedJamos.GroupBy(j => j.syl).OrderBy(g => g.Key);
-
-        foreach (var group in groupedBySyllable)
+        // 2. 정답 단어(detailed_jamos) 렌더링 - 기존과 동일
+        if (detailedJamos != null)
         {
-            // 한 음절 상자 생성
-            GameObject syllableObj = Instantiate(syllablePrefab, wordContainer);
+            var groupedBySyllable = detailedJamos.GroupBy(j => j.syl).OrderBy(g => g.Key);
+            foreach (var group in groupedBySyllable)
+            {
+                GameObject syllableObj = Instantiate(syllablePrefab, wordContainer);
+                var jamosInSyllable = group.ToList();
+                var onset = jamosInSyllable.FirstOrDefault(j => j.pos == "onset");
+                var nucleus = jamosInSyllable.FirstOrDefault(j => j.pos == "nucleus");
+                var coda = jamosInSyllable.FirstOrDefault(j => j.pos == "coda");
+                SetupSyllable(syllableObj, onset, nucleus, coda);
+            }
+            LayoutRebuilder.ForceRebuildLayoutImmediate(wordContainer.GetComponent<RectTransform>());
+        }
 
-            // 음절 내 자음/모음 데이터 추출
-            var jamosInSyllable = group.ToList();
-            var onset = jamosInSyllable.FirstOrDefault(j => j.pos == "onset");
-            var nucleus = jamosInSyllable.FirstOrDefault(j => j.pos == "nucleus");
-            var coda = jamosInSyllable.FirstOrDefault(j => j.pos == "coda");
+        // 3. 실제 발음 단어(heard_jamos) 렌더링
+        if (heardJamos != null && heardContainer != null)
+        {
+            var groupedHeard = heardJamos.GroupBy(j => j.syl).OrderBy(g => g.Key);
+            foreach (var group in groupedHeard)
+            {
+                GameObject syllableObj = Instantiate(syllablePrefab, heardContainer);
+                var jamosInSyllable = group.ToList();
 
-            // 3. 음절 내 자모 배치 (SyllableUI 컴포넌트 사용 권장이나 여기서는 직접 제어 예시)
-            SetupSyllable(syllableObj, onset, nucleus, coda);
+                // heard_jamos는 점수가 없는 JamoToken 형태입니다.
+                var onset = jamosInSyllable.FirstOrDefault(j => j.pos == "onset");
+                var nucleus = jamosInSyllable.FirstOrDefault(j => j.pos == "nucleus");
+                var coda = jamosInSyllable.FirstOrDefault(j => j.pos == "coda");
+
+                SetupHeardSyllable(syllableObj, onset, nucleus, coda);
+            }
+            LayoutRebuilder.ForceRebuildLayoutImmediate(heardContainer.GetComponent<RectTransform>());
         }
 
         Canvas.ForceUpdateCanvases();
-        LayoutRebuilder.ForceRebuildLayoutImmediate(wordContainer.GetComponent<RectTransform>());
-
         StopCoroutine("ClearFeedbackRoutine");
         StartCoroutine("ClearFeedbackRoutine");
     }
 
+    // 기존의 정답 세팅 함수 (색상 로직 포함)
     private void SetupSyllable(GameObject block, JamoScoreInfo cho, JamoScoreInfo jung, JamoScoreInfo jong)
     {
         SyllableUI syllableUI = block.GetComponent<SyllableUI>();
@@ -89,24 +106,41 @@ public class UIManager : MonoBehaviour
         string jungStr1 = "";
         string jungStr2 = "";
 
-        // 자모별 개별 색상 추출
         Color choColor = cho != null ? GetColor(cho.score) : Color.white;
         Color jungColor = jung != null ? GetColor(jung.score) : Color.white;
         Color jongColor = jong != null ? GetColor(jong.score) : Color.white;
 
         if (jung != null)
         {
-            // "ㅘ" -> splitVowels[0] = "ㅗ", splitVowels[1] = "ㅏ"
             string[] splitVowels = JamoSplitter.Split(jung.@char);
             jungStr1 = splitVowels[0];
-            if (splitVowels.Length > 1)
-            {
-                jungStr2 = splitVowels[1];
-            }
+            if (splitVowels.Length > 1) jungStr2 = splitVowels[1];
         }
 
-        // 추출한 데이터를 SyllableUI로 전달 (이중모음은 서버에서 하나의 모음 점수로 오므로 jungColor를 공통 적용)
         syllableUI.SetSyllable(choStr, jungStr1, jungStr2, jongStr, choColor, jungColor, jungColor, jongColor);
+    }
+
+    // 실제 발음 세팅 함수 (점수 없이 흰색/회색으로 렌더링)
+    private void SetupHeardSyllable(GameObject block, JamoToken cho, JamoToken jung, JamoToken jong)
+    {
+        SyllableUI syllableUI = block.GetComponent<SyllableUI>();
+        if (syllableUI == null) return;
+
+        string choStr = cho != null ? cho.@char : "";
+        string jongStr = jong != null ? jong.@char : "";
+        string jungStr1 = "";
+        string jungStr2 = "";
+
+        if (jung != null)
+        {
+            string[] splitVowels = JamoSplitter.Split(jung.@char);
+            jungStr1 = splitVowels[0];
+            if (splitVowels.Length > 1) jungStr2 = splitVowels[1];
+        }
+
+        // 실제 발음은 비교군이므로 담백하게 흰색(또는 밝은 회색)으로 고정합니다.
+        Color defaultColor = new Color(0.8f, 0.8f, 0.8f, 1f);
+        syllableUI.SetSyllable(choStr, jungStr1, jungStr2, jongStr, defaultColor, defaultColor, defaultColor, defaultColor);
     }
 
     private Color GetColor(float score)
@@ -121,6 +155,10 @@ public class UIManager : MonoBehaviour
         yield return new WaitForSeconds(feedbackDisplayTime);
         if (feedbackTitleText != null) feedbackTitleText.text = "";
         foreach (Transform child in wordContainer) Destroy(child.gameObject);
+
+        // ⭐️ 실제 발음 컨테이너도 함께 비워줍니다.
+        if (heardContainer != null)
+            foreach (Transform child in heardContainer) Destroy(child.gameObject);
     }
 
     public void ShowFeedbackMessage(string message) { if (feedbackTitleText != null) feedbackTitleText.text = message; }

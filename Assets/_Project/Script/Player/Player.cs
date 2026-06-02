@@ -16,6 +16,10 @@ public class Player : MonoBehaviour
     public Slider healthBarSlider;
     public Slider expBarSlider;
 
+    [Header("전투 설정")]
+    public GameObject projectilePrefab;
+    public Transform firePoint; // 발사 위치 (비워두면 플레이어 몸에서 발사)
+
     void Start()
     {
         _voiceInput = FindObjectOfType<MockKeyboardInput>();
@@ -31,32 +35,26 @@ public class Player : MonoBehaviour
 
     private void ExecuteVoiceAttack(ScorePayload payload)
     {
-        string recognizedWord = payload.recognized_word; // 서버는 "닭볶이"라고 보내줍니다.
+        string recognizedWord = payload.recognized_word;
         if (string.IsNullOrEmpty(recognizedWord)) return;
 
         Enemy[] targets = FindObjectsOfType<Enemy>();
 
         foreach (Enemy enemy in targets)
         {
-            // 수정: matchText(닥뽀끼) 대신 displayText(닭볶이)를 비교해야 합니다!
             if (enemy.displayText == recognizedWord)
             {
                 float damage = baseDamage * (payload.overall_score / 100f);
 
-                // 공격 수행 및 생존 여부 확인
-                bool isAlive = enemy.TakeDamage(damage);
+                // 수정됨: 즉시 데미지를 주지 않고 투사체를 발사합니다.
+                ShootProjectile(enemy, damage);
 
                 if (UIManager.Instance != null && payload.detailed_jamos != null)
                 {
-                    UIManager.Instance.ShowSyllableFeedback("<color=#00FF00>Hit!</color>", new List<JamoScoreInfo>(payload.detailed_jamos));
+                    UIManager.Instance.ShowSyllableFeedback("<color=#00FF00>Hit!</color>", new List<JamoScoreInfo>(payload.detailed_jamos), new List<JamoToken>(payload.heard_jamos));
                 }
 
-                // 적이 살아있을 때만 단어 교체
-                if (isAlive)
-                {
-                    EnemySpawner.Instance.ChangeEnemyWord(enemy, enemy.displayText);
-                }
-                return; // 타겟을 찾았으니 루프 종료
+                return;
             }
         }
     }
@@ -68,9 +66,23 @@ public class Player : MonoBehaviour
             if (enemy.matchText == data.word)
             {
                 float finalDamage = baseDamage * (data.accuracy + data.pitchScore);
-                enemy.TakeDamage(finalDamage);
+                ShootProjectile(enemy, finalDamage); // 투사체 발사로 변경
                 return;
             }
+        }
+    }
+
+    private void ShootProjectile(Enemy target, float damage)
+    {
+        if (projectilePrefab == null) return;
+
+        Vector3 spawnPos = firePoint != null ? firePoint.position : transform.position;
+        GameObject projObj = Instantiate(projectilePrefab, spawnPos, Quaternion.identity);
+
+        Projectile proj = projObj.GetComponent<Projectile>();
+        if (proj != null)
+        {
+            proj.Initialize(target, damage); // 투사체에게 타겟과 데미지를 넘겨줍니다.
         }
     }
 
