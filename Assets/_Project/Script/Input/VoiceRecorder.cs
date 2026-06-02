@@ -23,7 +23,7 @@ public class ContinuousVoiceRecorder : MonoBehaviour
 
     private List<float> _audioBuffer = new List<float>();
 
-    // ⭐️ 추가: UI 제어용 시스템 단어 목록
+    // 추가: UI 제어용 시스템 단어 목록
     private List<string> _uiCommands = new List<string> { "일시정지", "메뉴" };
 
     void Start()
@@ -99,7 +99,7 @@ public class ContinuousVoiceRecorder : MonoBehaviour
         _lastMicPosition = currentMicPos;
     }
 
-    // ⭐️ 새로 추가된 함수: 감지된 시점보다 과거의 소리를 AudioClip에서 가져옵니다.
+    // 감지된 시점보다 과거의 소리를 AudioClip에서 가져옵니다.
     private void ExtractPreBuffer(int currentMicPos, int sampleCount)
     {
         if (sampleCount <= 0 || _loopClip == null) return;

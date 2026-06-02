@@ -26,27 +26,11 @@ public class EnemySpawner : MonoBehaviour
         else Destroy(gameObject);
     }
 
-    void Start()
+public void SetWordList(List<WordEntry> selectedWords)
     {
-        LoadWordBankFromJson();
-        StartCoroutine(SpawnRoutine());
-    }
-
-    private void LoadWordBankFromJson()
-    {
-        string filePath = Path.Combine(Application.streamingAssetsPath, "WordBank.json");
-
-        if (File.Exists(filePath))
-        {
-            string jsonContent = File.ReadAllText(filePath);
-            WordBankData data = JsonUtility.FromJson<WordBankData>(jsonContent);
-            _wordBank = data.wordList;
-            Debug.Log($"[EnemySpawner] {_wordBank.Count}개의 단어를 성공적으로 로드했습니다.");
-        }
-        else
-        {
-            Debug.LogError($"[EnemySpawner] JSON 파일을 찾을 수 없습니다: {filePath}");
-        }
+        _wordBank = selectedWords;
+        _activeWords.Clear(); // 단어장이 바뀌었으니 현재 활성화된 단어 기록도 초기화합니다.
+        Debug.Log($"[EnemySpawner] {selectedWords.Count}개의 단어가 세팅되었습니다!");
     }
 
     private void SpawnEnemy()

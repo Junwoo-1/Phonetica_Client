@@ -4,11 +4,13 @@ using System; // Action 이벤트를 위해 필요
 // ⭐️ 1. 우리 게임이 가질 수 있는 모든 '상태'를 정의합니다.
 public enum GameState
 {
-    Ready,      // 게임 시작 전 대기 (카운트다운 등)
-    Playing,    // 정상적으로 게임 플레이 중
-    LevelUp,    // 경험치를 꽉 채워서 업그레이드 창이 뜬 상태 (시간 정지)
-    Paused,     // 유저가 ESC를 눌러 일시정지한 상태 (시간 정지)
-    GameOver    // 체력이 0이 되어 게임이 끝난 상태 (시간 정지)
+    MainMenu,       // 메인 화면
+    CategorySelect, // 카테고리 선택 화면
+    Transition,     // 화면 전환 연출 중
+    Playing,        // 실제 게임 플레이 중 (기존에 있다면 유지)
+    LevelUp,        // 경험치를 꽉 채워서 업그레이드 창이 뜬 상태 (시간 정지)
+    Paused,         // 유저가 ESC를 눌러 일시정지한 상태 (시간 정지)
+    GameOver        // 체력이 0이 되어 게임이 끝난 상태 (시간 정지)
 }
 
 public class GameManager : MonoBehaviour
@@ -41,7 +43,7 @@ public class GameManager : MonoBehaviour
         ChangeState(GameState.Playing);
     }
 
-    // ⭐️ 3. 외부(Player 등)에서 상태를 바꾸고 싶을 때 호출하는 핵심 함수입니다.
+    // 3. 외부(Player 등)에서 상태를 바꾸고 싶을 때 호출하는 핵심 함수입니다.
     public void ChangeState(GameState newState)
     {
         // 이미 같은 상태라면 무시합니다.
@@ -50,20 +52,43 @@ public class GameManager : MonoBehaviour
         CurrentState = newState;
         Debug.Log($"[GameManager] 게임 상태 변경: {newState}");
 
-        // 상태에 따른 '시간 제어(Time.timeScale)' 로직
+        // 상태에 따른 '시간 제어(Time.timeScale)' 및 전용 로직 처리
         switch (newState)
         {
+            case GameState.MainMenu:
+            case GameState.CategorySelect:
+                // 게임오버(0f) 상태에서 다시 메인 메뉴로 돌아올 때를 대비해 1f로 초기화합니다.
+                Time.timeScale = 1f; 
+                break;
+
+            case GameState.Transition:
+                Time.timeScale = 1f; // 코루틴 애니메이션(Time.deltaTime)이 정상 작동해야 하므로 1f 유지
+                
+                // 트랜지션 상태가 되면 연출 컨트롤러에게 애니메이션 시작 명령을 내립니다!
+                if (TransitionController.Instance != null)
+                {
+                    TransitionController.Instance.StartTransition();
+                }
+                else
+                {
+                    Debug.LogWarning("[GameManager] 씬에 TransitionController가 없습니다! 바로 Playing으로 넘어갑니다.");
+                    ChangeState(GameState.Playing); // 방어 로직: 컨트롤러가 없으면 진행이 막히지 않게 즉시 게임 시작
+                }
+                break;
+
             case GameState.Playing:
                 Time.timeScale = 1f; // 정상 속도로 시간이 흐름
                 break;
+
             case GameState.LevelUp:
             case GameState.Paused:
             case GameState.GameOver:
-                Time.timeScale = 0f; // ⭐️ 게임 내 모든 물리 연산과 Update(Time.deltaTime)를 멈춤!
+                Time.timeScale = 0f; // 게임 내 모든 물리 연산과 Update(Time.deltaTime)를 멈춤!
                 break;
         }
 
         // 상태가 바뀌었다고 이벤트를 구독한 모든 녀석들에게 방송을 쏩니다.
+        // 예: UIManager는 이걸 듣고 게임오버 창을 띄우거나, Player는 움직임을 멈춥니다.
         OnGameStateChanged?.Invoke(newState);
     }
 }
