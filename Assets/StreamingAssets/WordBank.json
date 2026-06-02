@@ -1,9 +1,28 @@
 {
-  "wordList": [
-    { "word": "사과", "pronunciation": "사과" },
-    { "word": "바나나", "pronunciation": "바나나" },
-    { "word": "오렌지", "pronunciation": "오렌지" },
-    { "word": "포도", "pronunciation": "포도" },
-    { "word": "닭볶이", "pronunciation": "닥뽀끼" }
+  "categories": [
+    {
+      "categoryName": "자기소개",
+      "words": [
+        { "word": "이름", "pronunciation": "이름" },
+        { "word": "나이", "pronunciation": "나이" },
+        { "word": "직업", "pronunciation": "지겁" }
+      ]
+    },
+    {
+      "categoryName": "숫자와 날짜",
+      "words": [
+        { "word": "오늘", "pronunciation": "오늘" },
+        { "word": "내일", "pronunciation": "내일" },
+        { "word": "하나", "pronunciation": "하나" }
+      ]
+    },
+    {
+      "categoryName": "필수 동사",
+      "words": [
+        { "word": "쉬다", "pronunciation": "쉬다" },
+        { "word": "놀다", "pronunciation": "놀다" },
+        { "word": "일하다", "pronunciation": "일하다" }
+      ]
+    }
   ]
 }

@@ -747,6 +747,7 @@ GameObject:
   m_Component:
   - component: {fileID: 552655422}
   - component: {fileID: 552655423}
+  - component: {fileID: 552655424}
   m_Layer: 0
   m_Name: UIManager
   m_TagString: Untagged
@@ -789,6 +790,22 @@ MonoBehaviour:
   syllablePrefab: {fileID: 7551881591218405613, guid: 00dce6de72a893e4b936171e2097521b, type: 3}
   feedbackTitleText: {fileID: 0}
   feedbackDisplayTime: 2
+--- !u!114 &552655424
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 552655421}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b5e879a50b040ac46972b9b908683b17, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TransitionController
+  circleUI: {fileID: 0}
+  textCanvasGroup: {fileID: 0}
+  duration: 1.5
+  targetScale: 50
 --- !u!1 &606522751
 GameObject:
   m_ObjectHideFlags: 0
