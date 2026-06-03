@@ -31,11 +31,20 @@ public class EnemySpawner : MonoBehaviour
         else Destroy(gameObject);
     }
 
-public void SetWordList(List<WordEntry> selectedWords)
+    public void SetWordList(List<WordEntry> selectedWords)
     {
         _wordBank = selectedWords;
         _activeWords.Clear(); // 단어장이 바뀌었으니 현재 활성화된 단어 기록도 초기화합니다.
         Debug.Log($"[EnemySpawner] {selectedWords.Count}개의 단어가 세팅되었습니다!");
+
+        // 기존에 돌고 있던 스폰 타이머가 있다면 끄고, 새롭게 시동을 겁니다!
+        StopAllCoroutines();
+        StartCoroutine(SpawnRoutine());
+    }
+    public void AddWordList(List<WordEntry> newWords)
+    {
+        _wordBank.AddRange(newWords);
+        Debug.Log($"[EnemySpawner] 📚 카테고리 추가됨! 현재 스폰 가능한 단어 풀: 총 {_wordBank.Count}개");
     }
 
     private void SpawnEnemy()

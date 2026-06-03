@@ -4,14 +4,14 @@ using System.Text;
 using UnityEngine;
 using UnityEngine.Networking;
 
-// ⭐️ [NEW] 개별 자모 점수 데이터 클래스
+// [NEW] 개별 자모 점수 데이터 클래스
 [Serializable]
 public class JamoScoreInfo
 {
     public string @char;
     public string pos;
     public float score;
-    public int syl; // ⭐️ [NEW] 서버에서 보낸 글자 인덱스 받기
+    public int syl; // [NEW] 서버에서 보낸 글자 인덱스 받기
 }
 
 [Serializable]
@@ -53,15 +53,13 @@ public class ScorePayload
     public float overall_score;
     public string recognized_word;
 
-    // ❌ 삭제됨: public string whisper_text;
-
-    // ⭐️ 정답 기준 채점 결과 (기존과 동일, UI 조립용)
+    //  정답 기준 채점 결과 (기존과 동일, UI 조립용)
     public JamoScoreInfo[] detailed_jamos;
 
-    // ⭐️ [NEW] 유저가 실제로 발음한 궤적 데이터 (매우 중요!)
+    // 유저가 실제로 발음한 궤적 데이터
     public JamoToken[] heard_jamos;
 
-    // ⭐️ [NEW] 발음 에러율 데이터
+    // 발음 에러율 데이터
     public float per;
     public float weighted_per;
 
@@ -69,7 +67,7 @@ public class ScorePayload
     public PerPosition per_position;
     public string[] problem_jamos;
 
-    // ⭐️ [NEW] (선택) 서버 신뢰도 부족 여부
+    //서버 신뢰도 부족 여부
     public bool low_confidence;
 }
 
@@ -161,7 +159,7 @@ public class PronunciationClient : MonoBehaviour
                 OnStatusUpdated?.Invoke("분석 대기 중...");
                 break;
             case "audio_loaded":
-            case "phoneme_completed": // ⭐️ Whisper(ASR) 단계가 빠지고 바로 음소 분석으로 넘어갑니다.
+            case "phoneme_completed":
             case "g2p_completed":
             case "alignment_completed":
                 OnStatusUpdated?.Invoke("발음 정밀 분석 중...");

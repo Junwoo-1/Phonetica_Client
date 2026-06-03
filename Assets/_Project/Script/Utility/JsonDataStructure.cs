@@ -8,7 +8,7 @@ public class WordEntry
     public string pronunciation;  // 판정용 (예: 일하다)
 }
 
-// ⭐️ [NEW] 카테고리 하나를 통째로 담는 새로운 클래스
+// [NEW] 카테고리 하나를 통째로 담는 새로운 클래스
 [Serializable]
 public class CategoryEntry
 {
@@ -19,6 +19,6 @@ public class CategoryEntry
 [Serializable]
 public class WordBankData
 {
-    // ⭐️ 기존의 wordList 대신 CategoryEntry의 리스트를 받습니다.
+    // 기존의 wordList 대신 CategoryEntry의 리스트를 받습니다.
     public List<CategoryEntry> categories; 
 }

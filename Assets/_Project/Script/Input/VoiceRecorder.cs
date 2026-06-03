@@ -2,15 +2,18 @@ using UnityEngine;
 using UnityEngine.UI;
 using System.Collections.Generic;
 
-public class ContinuousVoiceRecorder : MonoBehaviour
+public class VoiceRecorder : MonoBehaviour
 {
+    // 1. 비주얼라이저가 접근할 수 있도록 싱글톤을 만듭니다.
+    public static VoiceRecorder Instance { get; private set; }
+
+    // 2. 현재 볼륨 수치를 외부에서 읽을 수 있게 공개합니다.
+    public float CurrentVolume { get; private set; }
+
     [Header("마이크 설정")]
     private string _micName;
     private AudioClip _loopClip;
     private const int SAMPLE_RATE = 16000;
-
-    [Header("UI 시각화")]
-    public Slider volumeSlider;
 
     [Header("VAD 감도 설정")]
     [Range(0f, 1f)] public float threshold = 0.05f;
@@ -23,8 +26,12 @@ public class ContinuousVoiceRecorder : MonoBehaviour
 
     private List<float> _audioBuffer = new List<float>();
 
-    // 추가: UI 제어용 시스템 단어 목록
-    private List<string> _uiCommands = new List<string> { "일시정지", "메뉴" };
+    // 3. 싱글톤 초기화
+    void Awake()
+    {
+        if (Instance == null) Instance = this;
+        else Destroy(gameObject);
+    }
 
     void Start()
     {
@@ -44,8 +51,7 @@ public class ContinuousVoiceRecorder : MonoBehaviour
         if (currentMicPos == _lastMicPosition) return;
 
         float currentVolume = GetCurrentVolume(currentMicPos);
-
-        if (volumeSlider != null) volumeSlider.value = currentVolume;
+        CurrentVolume = currentVolume;
 
         if (currentVolume > threshold)
         {
@@ -63,30 +69,31 @@ public class ContinuousVoiceRecorder : MonoBehaviour
         }
         else if (_isCapturing)
         {
-            _silenceTimer += Time.deltaTime;
+            _silenceTimer += Time.unscaledDeltaTime;
             if (_silenceTimer > hangTime)
             {
                 _isCapturing = false;
 
                 byte[] wavData = ConvertToWav(_audioBuffer, SAMPLE_RATE);
 
-                // ⭐️ [NEW] 하이브리드 통신: 서버로 보낼 후보군 문자열 조립
                 List<string> allCandidates = new List<string>();
 
-                // 1. 화면에 스폰된 몬스터 단어들 추가
-                if (EnemySpawner.Instance != null)
+                if (GameManager.Instance.CurrentState == GameState.Playing)
                 {
-                    allCandidates.AddRange(EnemySpawner.Instance.ActiveWords);
+                    if (EnemySpawner.Instance != null)
+                    {
+                        allCandidates.AddRange(EnemySpawner.Instance.ActiveWords);
+                    }
                 }
 
-                // 2. UI 명령어 추가
-                allCandidates.AddRange(_uiCommands);
+                if (UIManager.Instance != null)
+                {
+                    allCandidates.AddRange(UIManager.Instance.GetActiveUICommands());
+                }
 
-                // 3. 콤마(,)로 묶어서 하나의 문자열로 만들기
                 string candidatesStr = string.Join(",", allCandidates);
                 Debug.Log($"[서버 전송] 후보 단어들: {candidatesStr}");
 
-                // 4. 오디오와 후보군을 함께 서버로 전송!
                 PronunciationClient.Instance.SendAudioToServer(wavData, candidatesStr);
             }
         }
@@ -99,25 +106,18 @@ public class ContinuousVoiceRecorder : MonoBehaviour
         _lastMicPosition = currentMicPos;
     }
 
-    // 감지된 시점보다 과거의 소리를 AudioClip에서 가져옵니다.
     private void ExtractPreBuffer(int currentMicPos, int sampleCount)
     {
         if (sampleCount <= 0 || _loopClip == null) return;
-
-        // 과거로 돌아갈 시작 위치 계산
         int startPos = currentMicPos - sampleCount;
 
         if (startPos < 0)
         {
-            // 마이크 루프의 처음(0)을 넘어 끝부분으로 돌아간 경우 (Wrap-around)
             startPos += _loopClip.samples;
-
-            // 1. 클립의 끝부분(startPos ~ 끝) 가져오기
             int firstPartSize = _loopClip.samples - startPos;
             float[] firstPart = new float[firstPartSize];
             _loopClip.GetData(firstPart, startPos);
 
-            // 2. 클립의 앞부분(0 ~ 남은 개수) 가져오기
             int secondPartSize = sampleCount - firstPartSize;
             float[] secondPart = new float[secondPartSize];
             if (secondPartSize > 0)
@@ -125,26 +125,22 @@ public class ContinuousVoiceRecorder : MonoBehaviour
                 _loopClip.GetData(secondPart, 0);
             }
 
-            // 바구니에 순서대로 담기
             _audioBuffer.AddRange(firstPart);
             _audioBuffer.AddRange(secondPart);
         }
         else
         {
-            // 루프 경계를 넘지 않는 평범한 경우
             float[] preSamples = new float[sampleCount];
             _loopClip.GetData(preSamples, startPos);
             _audioBuffer.AddRange(preSamples);
         }
     }
 
-    // 새로 추가된 함수: 마이크 클립에서 새 소리 조각을 떼어내어 바구니에 담기
     private void ExtractAndBufferAudio(int currentMicPos)
     {
         int sampleCount = currentMicPos - _lastMicPosition;
-        if (sampleCount < 0) 
+        if (sampleCount < 0)
         {
-            // 마이크 루프가 한 바퀴 돌아서 위치가 0으로 돌아갔을 때의 예외 처리
             sampleCount = _loopClip.samples - _lastMicPosition + currentMicPos;
         }
 
@@ -152,34 +148,29 @@ public class ContinuousVoiceRecorder : MonoBehaviour
         {
             float[] newSamples = new float[sampleCount];
             _loopClip.GetData(newSamples, _lastMicPosition);
-            _audioBuffer.AddRange(newSamples); // 바구니에 쏟아 붓기
+            _audioBuffer.AddRange(newSamples);
         }
     }
 
-    // 소리의 크기(진폭)를 계산하는 함수
     private float GetCurrentVolume(int currentMicPos)
     {
-        // 256개의 샘플(소리 조각)만 가져와서 검사합니다.
-        int sampleSize = 256; 
+        int sampleSize = 256;
         float[] samples = new float[sampleSize];
-        
-        // 현재 위치에서 256만큼 뒤로 간 위치의 소리를 읽어옵니다. (에러 방지용 수학 처리 포함)
+
         int startPosition = currentMicPos - sampleSize;
-        if (startPosition < 0) return 0; // 루프가 한 바퀴 돌 때의 복잡한 예외 처리 임시 방편
+        if (startPosition < 0) return 0;
 
         _loopClip.GetData(samples, startPosition);
 
-        // 읽어온 소리들의 절대값 평균을 구합니다. (RMS와 유사)
         float totalVolume = 0f;
         for (int i = 0; i < sampleSize; i++)
         {
             totalVolume += Mathf.Abs(samples[i]);
         }
-        
+
         return totalVolume / sampleSize;
     }
 
-    // List<float> 형태의 오디오 데이터를 표준 WAV 파일 규격(byte 배열)으로 변환
     private byte[] ConvertToWav(List<float> samples, int sampleRate = 16000)
     {
         int headerSize = 44;

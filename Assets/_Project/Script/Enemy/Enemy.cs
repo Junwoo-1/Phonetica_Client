@@ -75,6 +75,7 @@ public class Enemy : MonoBehaviour
 
     void Update()
     {
+
         if (_target != null && !_isDead) // 죽는 중에는 이동 정지
         {
             Vector3 direction = (_target.position - transform.position).normalized;

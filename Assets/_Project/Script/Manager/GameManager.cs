@@ -15,7 +15,10 @@ public enum GameState
 
 public class GameManager : MonoBehaviour
 {
-    // ⭐️ 2. 싱글톤 패턴: 어디서든 GameManager.Instance 로 접근할 수 있게 만듭니다.
+    [Header("게임 오브젝트 연결")]
+    public GameObject playerObject;
+
+    // 싱글톤 패턴: 어디서든 GameManager.Instance 로 접근할 수 있게 만듭니다.
     public static GameManager Instance { get; private set; }
 
     // 현재 게임의 상태를 보관하는 변수
@@ -39,8 +42,8 @@ public class GameManager : MonoBehaviour
 
     private void Start()
     {
-        // 게임이 시작되면 자동으로 'Playing' 상태로 전환합니다.
-        ChangeState(GameState.Playing);
+        // 게임이 시작되면 자동으로 'MainMenu' 상태로 전환합니다.
+        ChangeState(GameState.MainMenu);
     }
 
     // 3. 외부(Player 등)에서 상태를 바꾸고 싶을 때 호출하는 핵심 함수입니다.
@@ -78,6 +81,7 @@ public class GameManager : MonoBehaviour
 
             case GameState.Playing:
                 Time.timeScale = 1f; // 정상 속도로 시간이 흐름
+                if (playerObject != null) playerObject.SetActive(true);
                 break;
 
             case GameState.LevelUp:

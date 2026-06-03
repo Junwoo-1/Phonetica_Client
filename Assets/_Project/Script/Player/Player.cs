@@ -7,14 +7,16 @@ public class Player : MonoBehaviour
     private IVoiceInput _voiceInput;
     public float baseDamage = 100f;
 
-    [Header("체력 및 경험치")]
+    [Header("체력 및 경험치 (원형 UI)")]
     public float maxHealth = 100f;
     private float _currentHealth;
     public int currentLevel = 1;
     public float currentExp = 0f;
     public float maxExp = 100f;
-    public Slider healthBarSlider;
-    public Slider expBarSlider;
+
+    // 기존 Slider 대신 Image 컴포넌트를 사용합니다.
+    public Image hpRing;
+    public Image expRing;
 
     [Header("전투 설정")]
     public GameObject projectilePrefab;
@@ -26,8 +28,9 @@ public class Player : MonoBehaviour
         if (_voiceInput != null) _voiceInput.OnWordSpoken += AttackTarget;
 
         _currentHealth = maxHealth;
-        if (healthBarSlider != null) { healthBarSlider.maxValue = maxHealth; healthBarSlider.value = _currentHealth; }
-        if (expBarSlider != null) { expBarSlider.maxValue = maxExp; expBarSlider.value = currentExp; }
+
+        // ⭐️ 게임 시작 시 원형 UI 초기화
+        UpdateUI();
 
         if (PronunciationClient.Instance != null)
             PronunciationClient.Instance.OnScoreReceived += ExecuteVoiceAttack;
@@ -35,6 +38,8 @@ public class Player : MonoBehaviour
 
     private void ExecuteVoiceAttack(ScorePayload payload)
     {
+        if (GameManager.Instance.CurrentState != GameState.Playing) return;
+
         string recognizedWord = payload.recognized_word;
         if (string.IsNullOrEmpty(recognizedWord)) return;
 
@@ -46,7 +51,7 @@ public class Player : MonoBehaviour
             {
                 float damage = baseDamage * (payload.overall_score / 100f);
 
-                // 수정됨: 즉시 데미지를 주지 않고 투사체를 발사합니다.
+                // 즉시 데미지를 주지 않고 투사체를 발사합니다.
                 ShootProjectile(enemy, damage);
 
                 if (UIManager.Instance != null && payload.detailed_jamos != null)
@@ -58,6 +63,7 @@ public class Player : MonoBehaviour
             }
         }
     }
+
     private void AttackTarget(VoiceData data)
     {
         Enemy[] allEnemies = FindObjectsOfType<Enemy>();
@@ -89,28 +95,77 @@ public class Player : MonoBehaviour
     public void AddExp(float expAmount)
     {
         currentExp += expAmount;
-        if (expBarSlider != null) expBarSlider.value = currentExp;
+
+        // 적 처치 시 체력 증가 (원하시는 수치로 조절하세요!)
+        if (_currentHealth < maxHealth)
+        {
+            _currentHealth += 2f;
+            if (_currentHealth > maxHealth)
+            {
+                _currentHealth = maxHealth;
+            }
+        }
+
         if (currentExp >= maxExp) LevelUp();
+
+        UpdateUI(); // 최대 체력이 늘었으니 원형 UI도 갱신!
     }
 
     private void LevelUp()
     {
         currentLevel++;
         currentExp -= maxExp;
-        maxExp *= 1.5f;
-        if (expBarSlider != null)
+        maxExp += 10f;
+
+        // 레벨업 시 체력을 100% (최대치로) 회복!
+        _currentHealth = maxHealth;
+
+        UpdateUI();
+
+        if (UIManager.Instance != null) UIManager.Instance.HideFeedbackImmediate();
+
+        int totalCategories = 0;
+        if (CategorySelectionUI.Instance != null)
         {
-            expBarSlider.maxValue = maxExp;
-            expBarSlider.value = currentExp;
+            totalCategories = CategorySelectionUI.Instance.CurrentDisplayedCategories.Count;
         }
+
+        // 해금한 카테고리 개수가 전체 카테고리 개수와 같거나 크다면? (전부 마스터했다면)
+        if (LevelUpUI.UnlockedCategories.Count >= totalCategories)
+        {
+            Debug.Log("[Player] 👑 모든 단어장을 마스터했습니다! UI를 띄우지 않고 게임을 계속합니다.");
+            // 상태를 LevelUp으로 바꾸지 않고 여기서 함수를 종료(return)합니다. 
+            // (게임은 계속 Playing 상태로 유지되며, HP만 100%로 회복됩니다.)
+            return;
+        }
+
         GameManager.Instance.ChangeState(GameState.LevelUp);
     }
 
     public void TakeDamage(float damageAmount)
     {
         _currentHealth -= damageAmount;
-        if (healthBarSlider != null) healthBarSlider.value = _currentHealth;
+        if (_currentHealth < 0) _currentHealth = 0; // 체력이 0 미만으로 내려가지 않게 방어
+
+        // 피격 후 UI 갱신
+        UpdateUI();
+
         if (_currentHealth <= 0) Die();
+    }
+
+    // [핵심 로직] HP와 EXP 원형 UI를 갱신하는 헬퍼 함수
+    private void UpdateUI()
+    {
+        // 전체 원(1.0)의 절반(0.5)만 사용하므로, 비율에 무조건 0.5f를 곱해줍니다.
+        if (hpRing != null)
+        {
+            hpRing.fillAmount = (_currentHealth / maxHealth) * 0.5f;
+        }
+
+        if (expRing != null)
+        {
+            expRing.fillAmount = (currentExp / maxExp) * 0.5f;
+        }
     }
 
     private string GetColorCode(float score)
