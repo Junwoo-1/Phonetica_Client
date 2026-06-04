@@ -44,8 +44,8 @@ public class GameTimer : MonoBehaviour
     private void GameClear()
     {
         Debug.Log("[GameTimer] 제한 시간 도달! 게임 클리어 (버티기 성공)!");
-        
-        if (ResultUI.Instance != null) ResultUI.Instance.ShowResult(true);
+
+        ResultUI.IsClearData = true;
 
         GameManager.Instance.ChangeState(GameState.GameOver); 
     }

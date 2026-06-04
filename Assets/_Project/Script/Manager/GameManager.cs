@@ -29,6 +29,8 @@ public class GameManager : MonoBehaviour
 
     private void Awake()
     {
+
+        Application.targetFrameRate = 60;
         // 싱글톤 초기화: 씬에 매니저가 오직 1개만 존재하도록 보장합니다.
         if (Instance == null)
         {

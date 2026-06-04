@@ -27,6 +27,10 @@ public class Player : MonoBehaviour
     public float totalAccuracyScore = 0f; // 누적 발음 점수
     public int validAttackCount = 0;    // 성공한 공격 횟수 (평균을 내기 위함)
 
+    [Header("승리 조건 설정")]
+    // 데모 시연용: N개의 카테고리를 마스터하면 승리! (0으로 두면 무조건 '모든 카테고리' 기준으로 작동합니다)
+    public int targetCategoryCount = 3;
+
     void Start()
     {
         _voiceInput = FindObjectOfType<MockKeyboardInput>();
@@ -138,17 +142,18 @@ public class Player : MonoBehaviour
             totalCategories = CategorySelectionUI.Instance.CurrentDisplayedCategories.Count;
         }
 
-        // 해금한 카테고리 개수가 전체 카테고리 개수와 같거나 크다면? (전부 마스터했다면)
-        if (LevelUpUI.UnlockedCategories.Count >= totalCategories)
-        {
-            // [NEW] 더 이상 배울 게 없다면 퍼펙트 클리어 처리!
-            Debug.Log("[Player] 모든 단어장을 마스터했습니다! 퍼펙트 클리어!");
+        // 2. 실제 클리어 목표치 계산
+        // N이 0보다 크면 N과 전체 개수 중 더 '작은 값'을 목표로 하고, N이 0이면 전체 개수를 목표로 합니다.
+        int actualTarget = (targetCategoryCount > 0) ? Mathf.Min(targetCategoryCount, totalCategories) : totalCategories;
 
-            if (ResultUI.Instance != null) ResultUI.Instance.ShowResult(true);
-            
-            // 타이머와 마찬가지로 임시로 GameOver로 넘깁니다.
-            GameManager.Instance.ChangeState(GameState.GameOver); 
-            return; 
+        // 3. 목표치 도달 검사
+        if (LevelUpUI.UnlockedCategories.Count >= actualTarget)
+        {
+            Debug.Log($"[Player] 목표 카테고리({actualTarget}개) 마스터 완료! 퍼펙트 클리어!");
+
+            ResultUI.IsClearData = true;
+            GameManager.Instance.ChangeState(GameState.GameOver);
+            return;
         }
 
         // 고를 단어장이 남아있을 때만 비로소 시간을 멈추고 레벨업 창을 띄웁니다.
@@ -196,7 +201,7 @@ public class Player : MonoBehaviour
 
     private void Die()
     {
-        if (ResultUI.Instance != null) ResultUI.Instance.ShowResult(false);
+        ResultUI.IsClearData = false;
         GameManager.Instance.ChangeState(GameState.GameOver);
     }
 }

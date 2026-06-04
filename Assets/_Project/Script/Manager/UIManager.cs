@@ -4,7 +4,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine.UI;
 using System.Linq;
-
+using UnityEngine.SceneManagement;
 public class UIManager : MonoBehaviour
 {
     public static UIManager Instance { get; private set; }
@@ -25,6 +25,7 @@ public class UIManager : MonoBehaviour
     [SerializeField] private string settingCommand = "설정";
     [SerializeField] private string quitCommand = "종료";
     [SerializeField] private string backCommand = "뒤로";
+    [SerializeField] private string homeCommand = "처음으로";
 
     [Header("조립식 피드백 설정")]
     public Transform wordContainer;
@@ -307,6 +308,10 @@ public class UIManager : MonoBehaviour
                 commands.AddRange(LevelUpUI.Instance.GetCurrentUpgrades());
             }
         }
+        else if (currentState == GameState.GameOver)
+        {
+            commands.Add(homeCommand);
+        }
         return commands;
     }
     private void HandleVoiceCommand(ScorePayload payload)
@@ -375,6 +380,25 @@ public class UIManager : MonoBehaviour
             if (LevelUpUI.Instance != null)
             {
                 LevelUpUI.Instance.SelectUpgrade(word); // 여기서 LevelUpUI로 단어를 넘겨줍니다!
+            }
+        }
+
+        else if (currentState == GameState.GameOver)
+        {
+            // 유저가 "처음으로"를 외치면 UIManager가 직접 리셋을 집행합니다!
+            if (word == homeCommand)
+            {
+                Debug.Log("[UIManager] 🔄 '처음으로' 인식됨! 게임을 완전히 초기화합니다.");
+
+                // 1. Static 바구니 비우기
+                LevelUpUI.UnlockedCategories.Clear();
+                ResultUI.IsClearData = false;
+
+                // 2. 시간 흐름 원상복구
+                Time.timeScale = 1f;
+
+                // 3. 현재 씬 다시 불러오기
+                SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
             }
         }
     }
