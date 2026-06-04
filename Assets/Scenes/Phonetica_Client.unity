@@ -442,6 +442,7 @@ GameObject:
   - component: {fileID: 78745287}
   - component: {fileID: 78745286}
   - component: {fileID: 78745285}
+  - component: {fileID: 78745288}
   m_Layer: 5
   m_Name: GameOver
   m_TagString: Untagged
@@ -532,6 +533,24 @@ Canvas:
   m_SortingLayerID: 0
   m_SortingOrder: 0
   m_TargetDisplay: 0
+--- !u!114 &78745288
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 78745283}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8f709df44f9f1d34d9dc50336a88265e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ResultUI
+  killCountText: {fileID: 0}
+  categoriesText: {fileID: 0}
+  accuracyText: {fileID: 0}
+  titleText: {fileID: 0}
+  winDecorationGroup: {fileID: 0}
+  loseDecorationGroup: {fileID: 0}
 --- !u!1 &87856235
 GameObject:
   m_ObjectHideFlags: 0
@@ -1803,6 +1822,9 @@ MonoBehaviour:
   expRing: {fileID: 212027848}
   projectilePrefab: {fileID: 4473332204683902044, guid: 43d8f232da2b2e1498aa884b83b645df, type: 3}
   firePoint: {fileID: 0}
+  killCount: 0
+  totalAccuracyScore: 0
+  validAttackCount: 0
 --- !u!114 &399620882
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2248,6 +2270,7 @@ GameObject:
   - component: {fileID: 712392337}
   - component: {fileID: 712392336}
   - component: {fileID: 712392338}
+  - component: {fileID: 712392339}
   m_Layer: 0
   m_Name: GameManager
   m_TagString: Untagged
@@ -2301,6 +2324,20 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GameManager
   playerObject: {fileID: 399620877}
+--- !u!114 &712392339
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 712392335}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 108dbbcfbdcfa9a429503a37e95407f6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GameTimer
+  maxTime: 180
+  timerText: {fileID: 0}
 --- !u!1 &714335808
 GameObject:
   m_ObjectHideFlags: 0
@@ -2387,15 +2424,15 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 1, g: 1, b: 1, a: 0.392}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 10907, guid: 0000000000000000f000000000000000, type: 0}
-  m_Type: 1
+  m_Sprite: {fileID: 21300000, guid: 91995f289aacc3b418730cfaf6a624b4, type: 3}
+  m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
   m_FillMethod: 4

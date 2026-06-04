@@ -22,6 +22,11 @@ public class Player : MonoBehaviour
     public GameObject projectilePrefab;
     public Transform firePoint; // 발사 위치 (비워두면 플레이어 몸에서 발사)
 
+    [Header("결과 통계 (추적용)")]
+    public int killCount = 0;           // 처치한 적 수
+    public float totalAccuracyScore = 0f; // 누적 발음 점수
+    public int validAttackCount = 0;    // 성공한 공격 횟수 (평균을 내기 위함)
+
     void Start()
     {
         _voiceInput = FindObjectOfType<MockKeyboardInput>();
@@ -29,7 +34,7 @@ public class Player : MonoBehaviour
 
         _currentHealth = maxHealth;
 
-        // ⭐️ 게임 시작 시 원형 UI 초기화
+        // 게임 시작 시 원형 UI 초기화
         UpdateUI();
 
         if (PronunciationClient.Instance != null)
@@ -53,6 +58,8 @@ public class Player : MonoBehaviour
 
                 // 즉시 데미지를 주지 않고 투사체를 발사합니다.
                 ShootProjectile(enemy, damage);
+                totalAccuracyScore += payload.overall_score;
+                validAttackCount++;
 
                 if (UIManager.Instance != null && payload.detailed_jamos != null)
                 {
@@ -95,6 +102,7 @@ public class Player : MonoBehaviour
     public void AddExp(float expAmount)
     {
         currentExp += expAmount;
+        killCount++;
 
         // 적 처치 시 체력 증가 (원하시는 수치로 조절하세요!)
         if (_currentHealth < maxHealth)
@@ -133,12 +141,17 @@ public class Player : MonoBehaviour
         // 해금한 카테고리 개수가 전체 카테고리 개수와 같거나 크다면? (전부 마스터했다면)
         if (LevelUpUI.UnlockedCategories.Count >= totalCategories)
         {
-            Debug.Log("[Player] 👑 모든 단어장을 마스터했습니다! UI를 띄우지 않고 게임을 계속합니다.");
-            // 상태를 LevelUp으로 바꾸지 않고 여기서 함수를 종료(return)합니다. 
-            // (게임은 계속 Playing 상태로 유지되며, HP만 100%로 회복됩니다.)
-            return;
+            // [NEW] 더 이상 배울 게 없다면 퍼펙트 클리어 처리!
+            Debug.Log("[Player] 모든 단어장을 마스터했습니다! 퍼펙트 클리어!");
+
+            if (ResultUI.Instance != null) ResultUI.Instance.ShowResult(true);
+            
+            // 타이머와 마찬가지로 임시로 GameOver로 넘깁니다.
+            GameManager.Instance.ChangeState(GameState.GameOver); 
+            return; 
         }
 
+        // 고를 단어장이 남아있을 때만 비로소 시간을 멈추고 레벨업 창을 띄웁니다.
         GameManager.Instance.ChangeState(GameState.LevelUp);
     }
 
@@ -183,6 +196,7 @@ public class Player : MonoBehaviour
 
     private void Die()
     {
+        if (ResultUI.Instance != null) ResultUI.Instance.ShowResult(false);
         GameManager.Instance.ChangeState(GameState.GameOver);
     }
 }
