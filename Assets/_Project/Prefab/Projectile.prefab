@@ -104,5 +104,5 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5266f810c73abd9419048c6e06ac52f6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Projectile
-  speed: 15
+  speed: 20
   hitEffectPrefab: {fileID: 0}
