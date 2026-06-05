@@ -206,7 +206,7 @@ MonoBehaviour:
   _wordTextUI: {fileID: 2137104358776028805}
   moveSpeed: 1.2
   collisionDamage: 8
-  expReward: 10
+  expReward: 20
   deathEffectPrefab: {fileID: 4456042840638549593, guid: 5304947fb07eefe4e8c0bf31f96d68b7, type: 3}
 --- !u!1 &806661327519539219
 GameObject:

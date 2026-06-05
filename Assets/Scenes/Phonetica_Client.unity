@@ -1960,7 +1960,7 @@ MonoBehaviour:
   maxHealth: 30
   currentLevel: 1
   currentExp: 0
-  maxExp: 60
+  maxExp: 50
   hpRing: {fileID: 1222196633}
   expRing: {fileID: 212027848}
   projectilePrefab: {fileID: 4473332204683902044, guid: 43d8f232da2b2e1498aa884b83b645df, type: 3}
@@ -2573,7 +2573,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemySpawner
   enemyPrefab: {fileID: 658801385120840513, guid: d49852a0dbebd4e4c98c1e196f8bc273, type: 3}
-  spawnInterval: 4
+  spawnInterval: 8
   spawnRadius: 25
   playerTransform: {fileID: 399620878}
   spawnAngleCenter: 90

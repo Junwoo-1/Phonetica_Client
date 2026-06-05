@@ -32,7 +32,7 @@ public class LevelUpUI : MonoBehaviour
         if (CategorySelectionUI.Instance == null) return;
 
         // 1. CategorySelectionUI에서 읽어온 전체 카테고리 목록을 가져옵니다.
-        var allCategories = CategorySelectionUI.Instance.CurrentDisplayedCategories;
+        var allCategories = CategorySelectionUI.Instance.AllCategories;
 
         // 2. 전체 카테고리 중에서 '아직 내가 고르지 않은' 카테고리만 걸러냅니다.
         var availableCategories = allCategories.Where(c => !UnlockedCategories.Contains(c.categoryName)).ToList();

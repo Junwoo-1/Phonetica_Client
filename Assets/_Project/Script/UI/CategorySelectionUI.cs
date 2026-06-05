@@ -14,6 +14,8 @@ public class CategorySelectionUI : MonoBehaviour
 
     private List<CategoryEntry> _allCategories = new List<CategoryEntry>();
 
+    public List<CategoryEntry> AllCategories => _allCategories;
+
     // 현재 화면에 띄워진 3개의 카테고리
     public List<CategoryEntry> CurrentDisplayedCategories { get; private set; } = new List<CategoryEntry>();
 

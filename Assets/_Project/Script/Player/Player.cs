@@ -29,7 +29,7 @@ public class Player : MonoBehaviour
 
     [Header("승리 조건 설정")]
     // 데모 시연용: N개의 카테고리를 마스터하면 승리! (0으로 두면 무조건 '모든 카테고리' 기준으로 작동합니다)
-    public int targetCategoryCount = 3;
+    public int targetCategoryCount = 10;
 
     void Start()
     {
