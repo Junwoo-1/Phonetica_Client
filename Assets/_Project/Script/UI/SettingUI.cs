@@ -9,6 +9,7 @@ public class SettingUI : MonoBehaviour
 
     [Header("UI 연결")]
     public Slider volumeSlider; // 볼륨을 보여줄 슬라이더 UI
+    public Slider vadSlider;
 
     // 음성 명령어와 그에 맞는 볼륨 수치(0~1)를 매칭해둔 딕셔너리(사전)입니다.
     private Dictionary<string, float> _volumeCommands = new Dictionary<string, float>
@@ -35,6 +36,26 @@ public class SettingUI : MonoBehaviour
 
             // 게임 시작 시 기본 볼륨을 '중간(0.5)'으로 세팅합니다.
             volumeSlider.value = 0.5f;
+        }
+
+        if (vadSlider != null)
+        {
+            // 코드로 슬라이더의 최소/최대 범위를 강제 고정합니다. (0.01 ~ 0.2)
+            vadSlider.minValue = 0.01f;
+            vadSlider.maxValue = 0.2f;
+
+            // 게임 시작 시, 현재 보이스 레코더에 세팅된 감도(0.05)를 슬라이더 바에 반영합니다.
+            if (VoiceRecorder.Instance != null)
+            {
+                vadSlider.value = VoiceRecorder.Instance.threshold;
+            }
+            else
+            {
+                vadSlider.value = 0.05f; // 기본값
+            }
+
+            // 슬라이더를 움직일 때마다 아래의 OnVadSliderValueChanged 함수를 실행하도록 연결합니다.
+            vadSlider.onValueChanged.AddListener(OnVadSliderValueChanged);
         }
     }
 
@@ -69,6 +90,15 @@ public class SettingUI : MonoBehaviour
         if (SoundManager.Instance != null)
         {
             SoundManager.Instance.SetVolume(value);
+        }
+    }
+
+    private void OnVadSliderValueChanged(float value)
+    {
+        if (VoiceRecorder.Instance != null)
+        {
+            // 슬라이더의 값을 VoiceRecorder의 threshold에 실시간으로 덮어씌웁니다!
+            VoiceRecorder.Instance.threshold = value;
         }
     }
 }
