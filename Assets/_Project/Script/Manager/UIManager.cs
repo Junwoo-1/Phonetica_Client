@@ -48,7 +48,7 @@ public class UIManager : MonoBehaviour
 
         // [NEW] 서버 객체가 안전하게 생성된 후인 Start()에서 구독합니다!
         if (PronunciationClient.Instance != null)
-            PronunciationClient.Instance.OnScoreReceived += HandleVoiceCommand;
+            PronunciationClient.Instance.OnScoreReceived += HandleVoicePayload;
 
         // [NEW] 게임 시작 시 현재 상태를 MainMenu로 확실하게 고정합니다.
         if (GameManager.Instance != null && GameManager.Instance.CurrentState != GameState.MainMenu)
@@ -67,7 +67,7 @@ public class UIManager : MonoBehaviour
 
         // 추가: 구독 해제
         if (PronunciationClient.Instance != null)
-            PronunciationClient.Instance.OnScoreReceived -= HandleVoiceCommand;
+            PronunciationClient.Instance.OnScoreReceived -= HandleVoicePayload;
     }
 
     #region 스택(Stack) 기반 UI 관리 로직
@@ -314,10 +314,16 @@ public class UIManager : MonoBehaviour
         }
         return commands;
     }
-    private void HandleVoiceCommand(ScorePayload payload)
+    private void HandleVoicePayload(ScorePayload payload)
+    {
+        if (payload == null || string.IsNullOrEmpty(payload.recognized_word)) return;
+
+        // 데이터에서 글자만 쏙 빼서 메인 함수로 넘깁니다.
+        HandleVoiceCommand(payload.recognized_word.Trim());
+    }
+    public void HandleVoiceCommand(string word)
     {
         // Trim()을 사용해 양옆의 보이지 않는 공백을 완벽히 제거합니다.
-        string word = payload.recognized_word.Trim();
         if (string.IsNullOrEmpty(word)) return;
 
         GameState currentState = GameManager.Instance.CurrentState;
